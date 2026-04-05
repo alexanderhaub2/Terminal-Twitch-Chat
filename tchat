@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+import sys
+import socket
+import re
+import threading
+import time
+
+if len(sys.argv) < 2:
+    print("Usage: tchat <streamer>")
+    sys.exit(1)
+
+name = sys.argv[1]
+
+SERVER = 'irc.chat.twitch.tv'
+PORT = 6667
+NICK = '<Your Username>'
+TOKEN = 'Your Oauth key, you might have to create one'
+CHANNEL = f'#{name}'
+
+sock = socket.socket()
+sock.connect((SERVER, PORT))
+
+sock.send(f"PASS {TOKEN}\r\n".encode('utf-8'))
+sock.send(f"NICK {NICK}\r\n".encode('utf-8'))
+sock.send(f"JOIN {CHANNEL}\r\n".encode('utf-8'))
+
+def parse_message(message):
+    match = re.match(r'^:([^!]+)!.* PRIVMSG #[^ ]+ :(.*)$', message)
+    if match:
+        username = match.group(1)
+        text = match.group(2)
+        return username, text
+    return None, None
+
+# Flag to disconnect
+running = True
+
+def receive_chat():
+    global running
+    while running:
+        try:
+            response = sock.recv(2048).decode('utf-8', errors='ignore')
+        except OSError:
+            break
+ 
+        # Important: If you don't answer the Ping you will get disconnected
+        if response.startswith('PING'):
+            sock.send("PONG :tmi.twitch.tv\r\n".encode('utf-8'))
+            continue
